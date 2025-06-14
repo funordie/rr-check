@@ -48,6 +48,10 @@ while main_loop == 200 :
 
     print ("page_cnt:",page_cnt)
     main_responce = requests.get(url=URL, params=PARAMS)
+    if(main_responce.status_code != 200):
+        print("DEBUG: main response status: " , main_responce.status_code)
+        exit()
+
     main_loop = main_responce.status_code
 
     # extracting data in json format
@@ -65,7 +69,9 @@ while main_loop == 200 :
 
         DETAIL_PARAM = {'id':uid}
         page = requests.get(url=DETAIL_URL, params=DETAIL_PARAM)
-        print("DEBUG: detail response status: " , page.status_code)
+        if(page.status_code != 200):
+            print("DEBUG: detail response status: " , page.status_code)
+            exit()
 
         link = DETAIL_URL+"?id="+uid
         soup = BeautifulSoup(page.content, "html.parser")
@@ -81,10 +87,10 @@ while main_loop == 200 :
 
         # f.write(pos + csv_sep + uid + csv_sep + name + csv_sep + sobstvenik + csv_sep + stopanisvast + csv_sep + data + '\n')
         rowdata = [pos, link, name, sobstvenik, stopanisvast, data]
-        print(rowdata)
+        # print(rowdata)
         c.writerow(rowdata)
         # main_loop = 0
-    print("DEBUG: main response status: " , main_responce.status_code)
+    
     page_cnt += 1
 
 csvfile.close()
