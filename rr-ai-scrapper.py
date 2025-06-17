@@ -1,14 +1,13 @@
 import requests
 import csv
 from bs4 import BeautifulSoup
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 API_URL = "https://ntr.tourism.government.bg/CategoryzationAll.nsf/api/data/collections/name/vRegistarMNValid1"
 DETAIL_URL_PREFIX = "https://ntr.tourism.government.bg/CategoryzationAll.nsf/detail.xsp?id="
 PAGE_SIZE = 100
 results = []
 all_keys = set()
-
 
 def fetch_detail(unid):
     detail_url = DETAIL_URL_PREFIX + unid
@@ -56,7 +55,6 @@ def fetch_detail(unid):
         print(f"Error processing {unid}: {e}")
         return None
 
-
 page = 0
 while True:
     params = {
@@ -66,7 +64,7 @@ while True:
         'sortorder': 'ascending'
     }
 
-    print(f"Fetching page {page + 1} (page param={page})...")
+    print(f"Fetching page {page + 1}...")
     response = requests.get(API_URL, params=params, headers={"Accept": "application/json"})
 
     if response.status_code != 200:
@@ -75,18 +73,15 @@ while True:
 
     data = response.json()
     if not data:
-        print("No more data. Stopping.")
+        print("No data returned.")
         break
 
     unids = [entry.get("@unid") for entry in data if entry.get("@unid")]
-    if not unids:
-        print("No unids found on page. Stopping.")
-        break
+    print(f"Found {len(unids)} unids on page {page + 1}.")
 
     with ThreadPoolExecutor(max_workers=20) as executor:
-        future_to_unid = {executor.submit(fetch_detail, unid): unid for unid in unids}
-        for future in as_completed(future_to_unid):
-            result = future.result()
+        results_buffer = list(executor.map(fetch_detail, unids))
+        for result in results_buffer:
             if result:
                 results.append(result)
 
@@ -105,22 +100,3 @@ with open(output_file, 'w', newline='', encoding='utf-8') as f:
     writer.writerows(results)
 
 print(f"Saved {len(results)} entries to {output_file}")
-
-# Save human-readable HTML preview (first 10 entries)
-html_file = "tourism_data_preview.html"
-with open(html_file, 'w', encoding='utf-8') as f:
-    f.write("<html><head><meta charset='utf-8'><title>Tourism Data Preview</title>")
-    f.write("<style>body { font-family: Arial; } pre { background: #f9f9f9; padding: 10px; } h3 { color: #004488; }</style>")
-    f.write("</head><body><h1>Tourism Data Preview</h1>")
-    for i, entry in enumerate(results[:10], 1):
-        f.write(f"<h3>Entry #{i}</h3>")
-        f.write(f"<p><strong>ID:</strong> {entry['id']}<br>")
-        f.write(f"<strong>URL:</strong> <a href='{entry['url']}' target='_blank'>{entry['url']}</a><br>")
-        f.write(f"<strong>Sobstvenik:</strong> {entry['sobstvenik']}<br>")
-        f.write(f"<strong>Stopanisvast:</strong> {entry['stopanisvast']}</p>")
-        f.write("<pre>")
-        f.write(entry['data'])
-        f.write("</pre><hr>")
-    f.write("</body></html>")
-
-print(f"Saved HTML preview to {html_file}")
